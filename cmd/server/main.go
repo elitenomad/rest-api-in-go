@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/elitenomad/rest-api/internal/comment"
 	"github.com/elitenomad/rest-api/internal/database"
 	transportHTTP "github.com/elitenomad/rest-api/internal/transport/http"
 )
@@ -14,11 +15,14 @@ type App struct {
 func (app *App) Run() error {
 	fmt.Println("Setting up...")
 
-	if _, err := database.NewDatabase(); err != nil {
+	db, err := database.NewDatabase()
+	if err != nil {
 		return err
 	}
 
-	handler := transportHTTP.NewHandler()
+	service := comment.NewService(db)
+
+	handler := transportHTTP.NewHandler(service)
 	handler.SetupRoutes()
 
 	if err := http.ListenAndServe(":8080", handler.Router); err != nil {

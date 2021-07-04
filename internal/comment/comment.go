@@ -33,7 +33,7 @@ func NewService(db *gorm.DB) *Service {
 	}
 }
 
-func (service *Service) GetComment(ID uint) (Comment, error) {
+func (service *Service) GetComment(ID uint64) (Comment, error) {
 	var comment Comment
 	if result := service.DB.First(&comment, ID); result.Error != nil {
 		return Comment{}, result.Error
@@ -58,7 +58,7 @@ func (s *Service) PostComment(comment Comment) (Comment, error) {
 	return comment, nil
 }
 
-func (s *Service) UpdateComment(ID uint, newComment Comment) (Comment, error) {
+func (s *Service) UpdateComment(ID uint64, newComment Comment) (Comment, error) {
 	comment, err := s.GetComment(ID)
 	if err != nil {
 		return Comment{}, err
@@ -76,4 +76,10 @@ func (s *Service) DeleteComment(ID uint) error {
 		return result.Error
 	}
 	return nil
+}
+
+func (service *Service) GetAllComments() []Comment {
+	var comments []Comment
+	_ = service.DB.Find(&comments)
+	return comments
 }
