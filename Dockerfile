@@ -1,11 +1,12 @@
-FROM golang:1.16 as intermediate
+FROM golang:1.16 AS builder
 
 RUN mkdir /app
 ADD . /app
 WORKDIR /app
 
-RUN GO_ENABLED=0 GOOS=linux go build -o rest-api cmd/server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o app cmd/server/main.go
 
 FROM alpine:latest AS production
-COPY --from=intermediate /app/rest-api .
-CMD [./rest-api]
+COPY --from=builder /app .
+EXPOSE 8080
+CMD ["./app"]
