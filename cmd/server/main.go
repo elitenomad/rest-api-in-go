@@ -1,19 +1,26 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/elitenomad/rest-api/internal/comment"
 	"github.com/elitenomad/rest-api/internal/database"
 	transportHTTP "github.com/elitenomad/rest-api/internal/transport/http"
+	logger "github.com/sirupsen/logrus"
 )
 
 type App struct {
+	Name    string
+	Version string
 }
 
 func (app *App) Run() error {
-	fmt.Println("Setting up...")
+	logger.SetFormatter(&logger.JSONFormatter{})
+	logger.WithFields(
+		logger.Fields{
+			"AppName":    app.Name,
+			"AppVersion": app.Version,
+		}).Info("Setting Up Our APP")
 
 	db, err := database.NewDatabase()
 	if err != nil {
@@ -31,7 +38,7 @@ func (app *App) Run() error {
 	handler.SetupRoutes()
 
 	if err := http.ListenAndServe(":8080", handler.Router); err != nil {
-		fmt.Println("Failed to set up server")
+		logger.Error("Failed to set up server")
 		return err
 	}
 
@@ -39,10 +46,13 @@ func (app *App) Run() error {
 }
 
 func main() {
-	app := App{}
+	app := App{
+		Name:    "Rest API",
+		Version: "1.0",
+	}
 
 	if err := app.Run(); err != nil {
-		fmt.Println("Error in Starting the Rest API !!!")
-		fmt.Println(err)
+		logger.Error("Error in Starting the Rest API !!!")
+		logger.Fatal(err)
 	}
 }
