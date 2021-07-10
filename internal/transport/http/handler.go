@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -39,13 +40,26 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// BasicAuth - a handy middleware function that logs out incoming requests
+func BasicAuth(original func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if user == "admin" && pass == "password" && ok {
+			original(w, r)
+		} else {
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			sendHttpResponseError(w, "not authorized", errors.New("not authorized"))
+		}
+	}
+}
+
 func (h *Handler) SetupRoutes() {
 	fmt.Println("Setting up routes...")
 	h.Router = mux.NewRouter()
 	h.Router.Use(LoggingMiddleware)
 
 	h.Router.HandleFunc("/api/comments", h.GetAllComments).Methods("GET")
-	h.Router.HandleFunc("/api/comments", h.PostComment).Methods("POST")
+	h.Router.HandleFunc("/api/comments", BasicAuth(h.PostComment)).Methods("POST")
 	h.Router.HandleFunc("/api/comments/{id}", h.GetComment).Methods("GET")
 	h.Router.HandleFunc("/api/comments/{id}", h.UpdateComment).Methods("PUT")
 	h.Router.HandleFunc("/api/comments/{id}", h.DeleteComment).Methods("DELETE")
