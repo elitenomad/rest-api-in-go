@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/elitenomad/rest-api/internal/comment"
@@ -40,6 +42,24 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// validateToken - validates an incoming jwt token
+func validateToken(accessToken string) bool {
+	// replace this by loading in a private RSA cert for more security
+	var mySigningKey = []byte("missionimpossible")
+	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("There was an error")
+		}
+		return mySigningKey, nil
+	})
+
+	if err != nil {
+		return false
+	}
+
+	return token.Valid
+}
+
 // BasicAuth - a handy middleware function that logs out incoming requests
 func BasicAuth(original func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -53,13 +73,37 @@ func BasicAuth(original func(w http.ResponseWriter, r *http.Request)) func(w htt
 	}
 }
 
+// JWTAuth - a handy middleware function that will provide basic auth around specific endpoints
+func JWTAuth(original func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Info("jwt auth endpoint hit")
+		authHeader := r.Header["Authorization"]
+		if authHeader == nil {
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			sendHttpResponseError(w, "not authorized", errors.New("not authorized"))
+		}
+
+		authHeaderParts := strings.Split(authHeader[0], " ")
+		if len(authHeaderParts) != 2 || strings.ToLower(authHeaderParts[0]) != "bearer" {
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			sendHttpResponseError(w, "not authorized", errors.New("not authorized"))
+		}
+
+		if validateToken(authHeaderParts[1]) {
+			original(w, r)
+		} else {
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+			sendHttpResponseError(w, "not authorized", errors.New("not authorized"))
+		}
+	}
+}
 func (h *Handler) SetupRoutes() {
 	fmt.Println("Setting up routes...")
 	h.Router = mux.NewRouter()
 	h.Router.Use(LoggingMiddleware)
 
 	h.Router.HandleFunc("/api/comments", h.GetAllComments).Methods("GET")
-	h.Router.HandleFunc("/api/comments", BasicAuth(h.PostComment)).Methods("POST")
+	h.Router.HandleFunc("/api/comments", JWTAuth(h.PostComment)).Methods("POST")
 	h.Router.HandleFunc("/api/comments/{id}", h.GetComment).Methods("GET")
 	h.Router.HandleFunc("/api/comments/{id}", h.UpdateComment).Methods("PUT")
 	h.Router.HandleFunc("/api/comments/{id}", h.DeleteComment).Methods("DELETE")
